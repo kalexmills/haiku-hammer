@@ -2,12 +2,14 @@ package haikuhammer
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
 func IsHaiku(str string) bool {
 	trimmed := strings.Trim(str, " \n\t")
-	lines := strings.Split(trimmed, "\n")
+	cleaned := cleanEmoji(trimmed)
+	lines := strings.Split(cleaned, "\n")
 	if len(lines) != 3 {
 		return false
 	}
@@ -24,6 +26,11 @@ func IsHaiku(str string) bool {
 		return false
 	}
 	return line1 == 5 && line2 == 7 && line3 == 5
+}
+
+var EmojiRegex *regexp.Regexp
+func cleanEmoji(s string) string {
+	return strings.TrimSpace(EmojiRegex.ReplaceAllString(s, ""))
 }
 
 func lineSyllableCount(line string) (int, error) {

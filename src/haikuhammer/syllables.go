@@ -77,6 +77,7 @@ func cleanWord(s string) string {
 	return strip(strings.ToUpper(replaced))
 }
 
+
 func strip(s string) string {
 	var result strings.Builder
 	for i := 0; i < len(s); i++ {
@@ -101,6 +102,7 @@ var DictionaryTrie *TrieNode
 func init() {
 	initDictionary()
 	initAbbrevRegex()
+	initEmojiRegex()
 }
 
 func initDictionary() {
@@ -128,6 +130,14 @@ func initDictionary() {
 func initAbbrevRegex() {
 	var err error
 	AbbrevRegex, err = regexp.Compile("^[A-Z\\.]+$")
+	if err != nil {
+		panic(fmt.Errorf("could not parse regex: %w", err))
+	}
+}
+
+func initEmojiRegex() {
+	var err error
+	EmojiRegex, err = regexp.Compile("\\:.+\\:")
 	if err != nil {
 		panic(fmt.Errorf("could not parse regex: %w", err))
 	}
