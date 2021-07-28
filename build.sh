@@ -1,0 +1,1 @@
+GOARCH=386 GOOS=linux go build -o bin/haiku-hammer server/main.go
