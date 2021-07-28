@@ -15,6 +15,8 @@ type Config struct {
 	DeleteNonHaiku bool
 	PositiveReacts []string
 	NegativeReacts []string
+
+	Debug bool
 }
 
 func (c Config) String() string {
@@ -49,6 +51,11 @@ func (h *HaikuHammer) Open() error {
 		log.Println("error creating Discord session,", err)
 		return err
 	}
+
+	if h.config.Debug {
+		h.session.LogLevel = discordgo.LogDebug
+	}
+
 	h.session.AddHandler(h.ReceiveMessage)
 
 	h.session.Identify.Intents = discordgo.IntentsGuildMessages

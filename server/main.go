@@ -37,6 +37,7 @@ func readConfig() haikuhammer.Config {
 	viper.SetDefault("deleteNonHaiku", false)
 	viper.SetDefault("positiveReacts", []string{"💯","🍙","🍵","🍶","🍜"})
 	viper.SetDefault("negativeReacts", []string{"🚫","⛔"})
+	viper.SetDefault("debug", false)
 
 	viper.SetEnvPrefix("HAIKU_HAMMER")
 	viper.AutomaticEnv()
@@ -46,7 +47,7 @@ func readConfig() haikuhammer.Config {
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig()
 	if err != nil {
-		log.Println("no config file found, using defaults", err)
+		log.Println("no config file found, using defaults,", err)
 	}
 	return haikuhammer.Config{
 		Token: viper.GetString("token"),
@@ -55,5 +56,6 @@ func readConfig() haikuhammer.Config {
 		DeleteNonHaiku: viper.GetBool("deleteNonHaiku"),
 		PositiveReacts: viper.GetStringSlice("positiveReacts"),
 		NegativeReacts: viper.GetStringSlice("negativeReacts"),
+		Debug: viper.GetBool("debug"),
 	}
 }
