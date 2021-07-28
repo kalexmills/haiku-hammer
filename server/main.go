@@ -46,7 +46,7 @@ func readConfig() haikuhammer.Config {
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(err)
+		log.Println("no config file found, using defaults", err)
 	}
 	return haikuhammer.Config{
 		Token: viper.GetString("token"),
