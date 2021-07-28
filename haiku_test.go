@@ -1,4 +1,4 @@
-package haiku_enforcer
+package haikuhammer
 
 import (
 	"github.com/stretchr/testify/assert"

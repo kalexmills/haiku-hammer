@@ -1,4 +1,4 @@
-package haiku_enforcer
+package haikuhammer
 
 import (
 	"fmt"
@@ -40,16 +40,4 @@ func lineSyllableCount(line string) (int, error) {
 		count += syllables
 	}
 	return count, nil
-}
-
-func isVowel(chr_ rune) bool {
-	chr := string(chr_)
-	if (strings.EqualFold(chr, "a") || strings.EqualFold(chr, "e") ||
-		strings.EqualFold(chr, "i") ||
-		strings.EqualFold(chr, "o") ||
-		strings.EqualFold(chr, "u") ||
-		strings.EqualFold(chr, "y")) {
-		return true
-	}
-	return false
 }

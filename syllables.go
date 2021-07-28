@@ -1,4 +1,4 @@
-package haiku_enforcer
+package haikuhammer
 
 import (
 	_ "embed"
@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 )
-
 
 func CountSyllables(word string) (int, bool) {
 	upper := strip(strings.ToUpper(word))
