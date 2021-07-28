@@ -1,7 +1,7 @@
 package main
 
 import (
-	haikuhammer "github.com/kalexmills/haiku-enforcer"
+	"github.com/kalexmills/haiku-enforcer/src/haikuhammer"
 	"github.com/spf13/viper"
 	"log"
 

@@ -13,7 +13,7 @@ const Filename = "cmudict-0.7b.txt"
 func main() {
 	f, err := readFile()
 	if err != nil {
-		fmt.Printf("encountered error: %w\n", err)
+		fmt.Printf("encountered error: %v\n", err)
 		os.Exit(1)
 	}
 	entries := parseFile(f)

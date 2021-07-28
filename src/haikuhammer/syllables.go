@@ -9,8 +9,8 @@ import (
 )
 
 func CountSyllables(word string) (int, bool) {
-	upper := strip(strings.ToUpper(word))
-	counts, ok := SyllableCounts[upper]
+	cleaned := cleanWord(word)
+	counts, ok := SyllableCounts[cleaned]
 	if ok {
 		return counts[0], true
 	}
@@ -18,7 +18,7 @@ func CountSyllables(word string) (int, bool) {
 	if ok {
 		return count, true
 	}
-	count, ok = countCompound(upper)
+	count, ok = countCompound(cleaned)
 	if ok {
 		return count, true
 	}
@@ -70,6 +70,11 @@ func countAbbreviation(word string) (int, bool) {
 
 func isAbbreviation(word string) bool {
 	return AbbrevRegex.MatchString(word)
+}
+
+func cleanWord(s string) string {
+	replaced := strings.NewReplacer("’","'","‘","'").Replace(s)
+	return strip(strings.ToUpper(replaced))
 }
 
 func strip(s string) string {

@@ -22,6 +22,7 @@ func TestCountSyllables(t *testing.T) {
 		{"posting", 2, true},
 		{"bookkeeper", 3, true},
 		{"walking", 2, true},
+		{"don’t", 1, true},
 	}
 
 	for _, tt := range tests {
