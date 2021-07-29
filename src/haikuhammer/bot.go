@@ -58,9 +58,9 @@ func (h *HaikuHammer) Open() error {
 
 	h.session.AddHandler(h.ReceiveMessage)
 
-	h.session.Identify.Intents = discordgo.IntentsGuildMessages
+	h.session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 	if h.config.ReactToNonHaiku || h.config.ReactToHaiku {
-		h.session.Identify.Intents |= discordgo.IntentsGuildMessageReactions
+		h.session.Identify.Intents |= discordgo.IntentsGuildMessageReactions | discordgo.IntentsDirectMessageReactions
 	}
 
 	err = h.session.Open()

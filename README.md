@@ -6,4 +6,4 @@
    
 #### Language edge cases:
  - Handle elongated common single-syllable exclamations like 'ohhhh', 'ummm', and 'ahhhh'.
- - Search for more slang terms like 'bot'.
+ - Search for and include more slang terms like 'bot'.
