@@ -10,11 +10,11 @@ import (
 
 func CountSyllables(word string) (int, bool) {
 	cleaned := cleanWord(word)
-	counts, ok := SyllableCounts[cleaned]
-	if ok && len(counts) > 0 {
-		return counts[0], true
+	count, ok := countWord(cleaned)
+	if ok {
+		return count, true
 	}
-	count, ok := countAbbreviation(word)
+	count, ok = countAbbreviation(word)
 	if ok {
 		return count, true
 	}
@@ -25,20 +25,41 @@ func CountSyllables(word string) (int, bool) {
 	return 0, false
 }
 
-func countCompound(word string) (int, bool) {
-	if word == "" {
+func countWord(cleaned string) (int, bool) {
+	counts, ok := SyllableCounts[cleaned]
+	if ok && len(counts) > 0 {
+		return counts[0], true
+	}
+	n := len(cleaned)
+	if cleaned[n-1] == 'Y' {
+		counts, ok = SyllableCounts[cleaned[:n-1]]
+		if ok && len(counts) > 0 {
+			return counts[0] + 1, true
+		}
+	}
+	if cleaned[n-1] == 'S' {
+		counts, ok = SyllableCounts[cleaned[:n-1]]
+		if ok && len(counts) > 0 {
+			return counts[0], true
+		}
+	}
+	return 0, false
+}
+
+func countCompound(cleaned string) (int, bool) {
+	if cleaned == "" {
 		return 0, true
 	}
 	curr := DictionaryTrie
 	best := 1000
-	for i := 0; i < len(word); i++ {
-		curr = curr.Child(word[i])
+	for i := 0; i < len(cleaned); i++ {
+		curr = curr.Child(cleaned[i])
 		if curr == nil {
 			break
 		}
 		if curr.isWord {
-			count := SyllableCounts[word[:i+1]]
-			rest, ok := countCompound(word[i+1:])
+			count := SyllableCounts[cleaned[:i+1]]
+			rest, ok := countCompound(cleaned[i+1:])
 			if ok {
 				if best > count[0] + rest {
 					best = count[0] + rest
@@ -59,7 +80,7 @@ func countAbbreviation(word string) (int, bool) {
 	count := 0
 	for _, c := range word {
 		if 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' {
-			count++ // not all letters are the same
+			count++
 		}
 		if c == 'W' || c == 'w' {
 			count += 2 // W is 3 syllables; 2 more than the 1 we added above

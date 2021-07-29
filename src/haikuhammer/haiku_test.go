@@ -33,6 +33,7 @@ func TestIsHaiku(t *testing.T) {
 		"@Alex wrote a bot.\nIt checks for Haiku, so cool.\nReport all bugs please.\n",
 		"Hey, um, hey brother?\nDo you know how syllable?\nFive seven five, bitch. :wink:",
 		"y do u go now\no i c u r m t\nbig big fill coming",
+		"a mild prosey piece\nof nannas basket casey\nsinks into the sea",
 	}
 
 	notHaikus := []string{
