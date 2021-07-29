@@ -30,7 +30,7 @@ func IsHaiku(str string) error {
 // not a haiku
 func evaluateHaiku(lines [3]int, errs []error) error {
 	if lines != [3]int{5,7,5} {
-		errs = append(errs, fmt.Errorf("I computed syllables as %d/%d/%d, but I expected 5/7/5", lines[0], lines[1], lines[2]))
+		errs = append(errs, fmt.Errorf("I counted a syllable structure of %d/%d/%d, but I expected 5/7/5", lines[0], lines[1], lines[2]))
 	}
 	errStr := "Hmmm, this doesn't seem like a traditional English Haiku; here's why:"
 	var hasErr bool

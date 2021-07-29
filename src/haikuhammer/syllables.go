@@ -58,18 +58,21 @@ func countAbbreviation(word string) (int, bool) {
 	}
 	count := 0
 	for _, c := range word {
-		if 'A' <= c && c <= 'Z' {
+		if 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' {
 			count++ // not all letters are the same
 		}
-		if c == 'W' {
-			count += 2
+		if c == 'W' || c == 'w' {
+			count += 2 // W is 3 syllables; 2 more than the 1 we added above
 		}
 	}
 	return count, true
 }
 
 func isAbbreviation(word string) bool {
-	return AbbrevRegex.MatchString(word)
+	trimmed := strings.TrimFunc(word, func(r rune) bool {
+		return !('A' <= r && r <= 'Z') && !('a' <= r && r <= 'z')
+	})
+	return AbbrevRegex.MatchString(trimmed)
 }
 
 func cleanWord(s string) string {
@@ -133,7 +136,7 @@ func initDictionaryAndCounts() {
 
 func initAbbrevRegex() {
 	var err error
-	AbbrevRegex, err = regexp.Compile("^[A-Z\\.]+$")
+	AbbrevRegex, err = regexp.Compile("^([A-Z\\.]+|[a-z])$")
 	if err != nil {
 		panic(fmt.Errorf("could not parse regex: %w", err))
 	}

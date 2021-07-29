@@ -57,7 +57,7 @@ func (h *HaikuHammer) Open() error {
 		h.session.LogLevel = discordgo.LogDebug
 	}
 
-	h.session.AddHandler(h.ReceiveMessage)
+	h.session.AddHandler(h.ReceiveNewMessage)
 
 	h.session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 	if h.config.ReactToNonHaiku || h.config.ReactToHaiku {
@@ -76,7 +76,11 @@ func (h *HaikuHammer) Close() error {
 	return h.session.Close()
 }
 
-func (h *HaikuHammer) ReceiveMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (h *HaikuHammer) ReceiveEditedMessage(s *discordgo.Session, m *discordgo.MessageEdit) {
+
+}
+
+func (h *HaikuHammer) ReceiveNewMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.Bot { // prevent SkyNet; don't talk to bots
 		return
 	}
@@ -86,6 +90,10 @@ func (h *HaikuHammer) ReceiveMessage(s *discordgo.Session, m *discordgo.MessageC
 	} else {
 		h.HandleNonHaiku(s, m, err)
 	}
+}
+
+type IncomingMessage struct {
+
 }
 
 func (h *HaikuHammer) HandleHaiku(s *discordgo.Session, m *discordgo.MessageCreate) {

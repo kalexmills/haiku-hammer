@@ -23,13 +23,23 @@ func TestCountSyllables(t *testing.T) {
 		{"bookkeeper", 3, true},
 		{"walking", 2, true},
 		{"don’t", 1, true},
+		{"\"don’t\"", 1, true},
+		{"\"don’t!!!!\"", 1, true},
+		{"u", 1, true},
+		{"w", 3, true},
+		{"y", 1, true},
+		{"y,", 1, true},
+		{"y!!!?!!?!", 1, true},
+		{"\"y\"", 1 ,true},
+		{"\"zn\"", 0 ,false},
+		{"\"W.P.A.\"", 5 ,true},
 	}
 
 	for _, tt := range tests {
 		count, ok := CountSyllables(tt.input)
-		assert.Equal(t, ok, tt.ok, tt.input)
+		assert.Equal(t, tt.ok, ok, tt.input)
 		if ok {
-			assert.Equal(t, count, tt.expectedCount, tt.input)
+			assert.Equal(t, tt.expectedCount, count, tt.input)
 		}
 	}
 }
