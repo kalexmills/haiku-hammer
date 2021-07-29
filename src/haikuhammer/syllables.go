@@ -11,7 +11,7 @@ import (
 func CountSyllables(word string) (int, bool) {
 	cleaned := cleanWord(word)
 	counts, ok := SyllableCounts[cleaned]
-	if ok {
+	if ok && len(counts) > 0 {
 		return counts[0], true
 	}
 	count, ok := countAbbreviation(word)
@@ -100,12 +100,12 @@ var SyllableCounts map[string][]int
 var DictionaryTrie *TrieNode
 
 func init() {
-	initDictionary()
+	initDictionaryAndCounts()
 	initAbbrevRegex()
 	initEmojiRegex()
 }
 
-func initDictionary() {
+func initDictionaryAndCounts() {
 	SyllableCounts = make(map[string][]int)
 	DictionaryTrie = &TrieNode{}
 
@@ -121,6 +121,10 @@ func initDictionary() {
 			}
 			counts = append(counts, count)
 		}
+		if len(counts) == 0 {
+			continue
+		}
+
 		SyllableCounts[word] = counts
 
 		DictionaryTrie.Insert(word)
