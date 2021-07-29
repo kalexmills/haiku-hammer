@@ -13,6 +13,7 @@ type Config struct {
 	ReactToHaiku bool
 	ReactToNonHaiku bool
 	DeleteNonHaiku bool
+	ExplainNonHaiku bool
 	PositiveReacts []string
 	NegativeReacts []string
 
@@ -20,8 +21,8 @@ type Config struct {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\tReactToHaiku: %t\n\tReactToNonHaiku: %t\n\tDeleteNonHaiku: %t",
-		c.ReactToHaiku, c.ReactToNonHaiku, c.DeleteNonHaiku)
+	return fmt.Sprintf("\tReactToHaiku: %t\n\tReactToNonHaiku: %t\n\tDeleteNonHaiku: %t\n\tExplainNonHaiku: %t\n",
+		c.ReactToHaiku, c.ReactToNonHaiku, c.DeleteNonHaiku, c.ExplainNonHaiku)
 }
 
 // TODO: customize the emoji reaction given from a random set
@@ -76,11 +77,14 @@ func (h *HaikuHammer) Close() error {
 }
 
 func (h *HaikuHammer) ReceiveMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if IsHaiku(m.Content) {
+	if m.Author.Bot { // prevent SkyNet; don't talk to bots
+		return
+	}
+	if err := IsHaiku(m.Content); err == nil {
 		log.Printf("received haiku: %s\n", strings.ReplaceAll(m.Content, "\n","\\n"))
 		h.HandleHaiku(s, m)
 	} else {
-		h.HandleNonHaiku(s, m)
+		h.HandleNonHaiku(s, m, err)
 	}
 }
 
@@ -90,7 +94,7 @@ func (h *HaikuHammer) HandleHaiku(s *discordgo.Session, m *discordgo.MessageCrea
 	}
 }
 
-func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.MessageCreate, err error) {
 	if h.config.DeleteNonHaiku {
 		h.Delete(s, m)
 		return
@@ -99,6 +103,12 @@ func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.MessageC
 	if h.config.ReactToNonHaiku {
 		h.react(s, m, randomString(h.config.NegativeReacts))
 		log.Println("reacted to non-haiku,", m.ID, strings.ReplaceAll(m.Content, "\n", "\\n"))
+	}
+
+	if isDM, err2 := h.isDM(s, m.ChannelID); err2 == nil && isDM && h.config.ExplainNonHaiku {
+		h.ExplainHaiku(s, m, err)
+	} else if err2 != nil {
+		log.Println("could not lookup channel,", err)
 	}
 }
 
@@ -111,23 +121,52 @@ func (h *HaikuHammer) Delete(s *discordgo.Session, m *discordgo.MessageCreate) {
 	dmChannel, err := h.createDMChannel(s, m.Author.ID)
 	if err != nil {
 		log.Println("could not create user DM channel,", err)
+		return
 	}
 	c, err := h.lookupChannel(s, m.ChannelID)
 	if err != nil {
 		log.Println("could not lookup message ChannelID,", err)
+		return
 	}
 	explanation := fmt.Sprintf("I deleted the message you just sent to %s since I didn't think it was a proper Haiku:\n %s", c.Mention(), quote(m.Content))
 	_, err = s.ChannelMessageSend(dmChannel.ID, explanation)
 	if err != nil {
 		log.Println("could not send message to user DM channel,", err)
+		return
 	}
 	log.Println("deleted message,", m.ID, strings.ReplaceAll(m.Content, "\n", "\\n"))
+}
+
+func (h *HaikuHammer) ExplainHaiku(s *discordgo.Session, m *discordgo.MessageCreate, explainErr error) {
+	if explainErr == nil {
+		log.Println("tried to explain a non-haiku without an error,", strings.ReplaceAll(m.Content, "\n", "\\n"))
+		return
+	}
+	dmChannel, err := h.createDMChannel(s, m.Author.ID)
+	if err != nil {
+		log.Println("could not create user DM channel,", err)
+		return
+	}
+	_, err = s.ChannelMessageSendReply(dmChannel.ID, explainErr.Error(), m.MessageReference)
+	if err != nil {
+		log.Println("could not send message to user DM channel,", err)
+		return
+	}
+}
+
+func (h *HaikuHammer) isDM(s *discordgo.Session, channelID string) (bool, error) {
+	c, err := h.lookupChannel(s, channelID)
+	if err != nil {
+		return false, err
+	}
+	return c.Type == discordgo.ChannelTypeDM && len(c.Recipients) == 1, nil
 }
 
 func (h *HaikuHammer) react(s *discordgo.Session, m *discordgo.MessageCreate, reaction string) {
 	err := s.MessageReactionAdd(m.ChannelID, m.Message.ID, reaction)
 	if err != nil {
 		log.Println("could not add emoji reaction,", err)
+		return
 	}
 }
 

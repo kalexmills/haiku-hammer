@@ -45,9 +45,9 @@ func TestIsHaiku(t *testing.T) {
 	}
 
 	for _, haiku := range haikus {
-		assert.Equal(t, true, IsHaiku(haiku), haiku)
+		assert.NoError(t, IsHaiku(haiku), haiku)
 	}
 	for _, nonHaiku := range notHaikus {
-		assert.Equal(t, false, IsHaiku(nonHaiku), nonHaiku)
+		assert.Error(t, IsHaiku(nonHaiku), nonHaiku)
 	}
 }

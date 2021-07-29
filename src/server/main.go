@@ -35,6 +35,7 @@ func readConfig() haikuhammer.Config {
 	viper.SetDefault("reactHaiku", true)
 	viper.SetDefault("reactNonHaiku", false)
 	viper.SetDefault("deleteNonHaiku", false)
+	viper.SetDefault("explainNonHaiku", true)
 	viper.SetDefault("positiveReacts", []string{"💯","🍙","🍵","🍶","🍜"})
 	viper.SetDefault("negativeReacts", []string{"🚫","⛔"})
 	viper.SetDefault("debug", false)
@@ -54,6 +55,7 @@ func readConfig() haikuhammer.Config {
 		ReactToHaiku: viper.GetBool("reactHaiku"),
 		ReactToNonHaiku: viper.GetBool("reactNonHaiku"),
 		DeleteNonHaiku: viper.GetBool("deleteNonHaiku"),
+		ExplainNonHaiku: viper.GetBool("explainNonHaiku"),
 		PositiveReacts: viper.GetStringSlice("positiveReacts"),
 		NegativeReacts: viper.GetStringSlice("negativeReacts"),
 		Debug: viper.GetBool("debug"),
