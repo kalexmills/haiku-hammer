@@ -47,20 +47,29 @@ func countWord(cleaned string) (int, bool) {
 }
 
 func countCompound(cleaned string) (int, bool) {
+	if len(cleaned) > 1000 {
+		return 0, false // we're just not allowing compound words this long (preventing DoS), sorry!
+	}
+	// recursively crawls a trie, looking for valid break points in the word.
+	// every possible segmentation of cleaned is tested, using the trie helps to end the search early
+	// in case no other words exist, and helps to ensure only valid breakpoints are recursively checked.
 	if cleaned == "" {
 		return 0, true
 	}
-	curr := DictionaryTrie
+	curr := DictionaryTrie // all words start from the beginning
 	best := 1000
 	for i := 0; i < len(cleaned); i++ {
-		curr = curr.Child(cleaned[i])
+		curr = curr.Child(cleaned[i]) // test the next letter against the next character in the trie
 		if curr == nil {
 			break
 		}
-		if curr.isWord {
+		if curr.isWord { // found a prefix that's a word. Count its syllables and start over with the remainder
 			count := SyllableCounts[cleaned[:i+1]]
 			rest, ok := countCompound(cleaned[i+1:])
 			if ok {
+				// we were able to complete the suffix, add its count to the prefix and check to see
+				// if it's the best breakdown so far. But keep going to test all the other prefixes in
+				// case we have better options.
 				if best > count[0] + rest {
 					best = count[0] + rest
 				}
