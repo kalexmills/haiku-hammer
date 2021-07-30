@@ -58,7 +58,8 @@ func (h *HaikuHammer) Open() error {
 		h.session.LogLevel = discordgo.LogDebug
 	}
 
-	h.session.AddHandler(h.ReceiveNewMessage)
+	h.session.AddHandler(h.ReceiveMessageCreate)
+	h.session.AddHandler(h.ReceiveMessageEdit)
 
 	h.session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 	if h.config.ReactToNonHaiku || h.config.ReactToHaiku {
@@ -77,7 +78,15 @@ func (h *HaikuHammer) Close() error {
 	return h.session.Close()
 }
 
-func (h *HaikuHammer) ReceiveNewMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (h *HaikuHammer) ReceiveMessageEdit(s *discordgo.Session, m *discordgo.MessageUpdate) {
+	h.HandleMessage(s, m.Message)
+}
+
+func (h *HaikuHammer) ReceiveMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	h.HandleMessage(s, m.Message)
+}
+
+func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("Recovered from panic on content, %s, panicking on: %v\n%v", strings.ReplaceAll(m.Content, "\n","\\n"), r, debug.Stack())
@@ -95,13 +104,13 @@ func (h *HaikuHammer) ReceiveNewMessage(s *discordgo.Session, m *discordgo.Messa
 	}
 }
 
-func (h *HaikuHammer) HandleHaiku(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (h *HaikuHammer) HandleHaiku(s *discordgo.Session, m *discordgo.Message) {
 	if h.config.ReactToHaiku {
 		h.react(s, m, randomString(h.config.PositiveReacts))
 	}
 }
 
-func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.MessageCreate, err error) {
+func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.Message, err error) {
 	if h.config.DeleteNonHaiku {
 		h.Delete(s, m)
 		return
@@ -119,8 +128,8 @@ func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.MessageC
 	}
 }
 
-func (h *HaikuHammer) Delete(s *discordgo.Session, m *discordgo.MessageCreate) {
-	err := s.ChannelMessageDelete(m.ChannelID, m.Message.ID)
+func (h *HaikuHammer) Delete(s *discordgo.Session, m *discordgo.Message) {
+	err := s.ChannelMessageDelete(m.ChannelID, m.ID)
 	if err != nil {
 		log.Println("could not delete message from channel,", err)
 		return
@@ -144,7 +153,7 @@ func (h *HaikuHammer) Delete(s *discordgo.Session, m *discordgo.MessageCreate) {
 	log.Println("deleted message,", m.ID, strings.ReplaceAll(m.Content, "\n", "\\n"))
 }
 
-func (h *HaikuHammer) ExplainHaiku(s *discordgo.Session, m *discordgo.MessageCreate, explainErr error) {
+func (h *HaikuHammer) ExplainHaiku(s *discordgo.Session, m *discordgo.Message, explainErr error) {
 	if explainErr == nil {
 		log.Println("tried to explain a non-haiku without an error,", strings.ReplaceAll(m.Content, "\n", "\\n"))
 		return
@@ -169,8 +178,8 @@ func (h *HaikuHammer) isDM(s *discordgo.Session, channelID string) (bool, error)
 	return c.Type == discordgo.ChannelTypeDM && len(c.Recipients) == 1, nil
 }
 
-func (h *HaikuHammer) react(s *discordgo.Session, m *discordgo.MessageCreate, reaction string) {
-	err := s.MessageReactionAdd(m.ChannelID, m.Message.ID, reaction)
+func (h *HaikuHammer) react(s *discordgo.Session, m *discordgo.Message, reaction string) {
+	err := s.MessageReactionAdd(m.ChannelID, m.ID, reaction)
 	if err != nil {
 		log.Println("could not add emoji reaction,", err)
 		return
