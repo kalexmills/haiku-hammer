@@ -26,11 +26,14 @@ func CountSyllables(word string) (int, bool) {
 }
 
 func countWord(cleaned string) (int, bool) {
+	n := len(cleaned)
+	if n == 0 {
+		return 0, false
+	}
 	counts, ok := SyllableCounts[cleaned]
 	if ok && len(counts) > 0 {
 		return counts[0], true
 	}
-	n := len(cleaned)
 	if cleaned[n-1] == 'Y' {
 		counts, ok = SyllableCounts[cleaned[:n-1]]
 		if ok && len(counts) > 0 {
