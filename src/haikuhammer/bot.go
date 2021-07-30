@@ -5,6 +5,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"log"
 	"math/rand"
+	"runtime/debug"
 	"strings"
 )
 
@@ -79,7 +80,8 @@ func (h *HaikuHammer) Close() error {
 func (h *HaikuHammer) ReceiveNewMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("Recovered from panic on content, %s, panicked value: %v", strings.ReplaceAll(m.Content, "\n","\\n"), r)
+			fmt.Printf("Recovered from panic on content, %s, panicking on: %v\n%v", strings.ReplaceAll(m.Content, "\n","\\n"), r, debug.Stack())
+			panic(r)
 		}
 	}()
 	if m.Author.Bot { // prevent SkyNet; don't talk to bots
