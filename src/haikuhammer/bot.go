@@ -76,11 +76,12 @@ func (h *HaikuHammer) Close() error {
 	return h.session.Close()
 }
 
-func (h *HaikuHammer) ReceiveEditedMessage(s *discordgo.Session, m *discordgo.MessageEdit) {
-
-}
-
 func (h *HaikuHammer) ReceiveNewMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Recovered from panic on content, %s, panicked value: %v", strings.ReplaceAll(m.Content, "\n","\\n"), r)
+		}
+	}()
 	if m.Author.Bot { // prevent SkyNet; don't talk to bots
 		return
 	}
@@ -90,10 +91,6 @@ func (h *HaikuHammer) ReceiveNewMessage(s *discordgo.Session, m *discordgo.Messa
 	} else {
 		h.HandleNonHaiku(s, m, err)
 	}
-}
-
-type IncomingMessage struct {
-
 }
 
 func (h *HaikuHammer) HandleHaiku(s *discordgo.Session, m *discordgo.MessageCreate) {
