@@ -6,18 +6,18 @@ import (
 )
 
 type Haiku struct {
-	ServerID  int `prof:"guild_id"`
-	ChannelID int `prof:"channel_id"`
-	MessageID int `prof:"message_id"`
+	GuildID       int    `prof:"guild_id"`
+	ChannelID     int    `prof:"channel_id"`
+	MessageID     int    `prof:"message_id"`
 	AuthorMention string `prof:"author_mention"`
-	Content   string `prof:"content"`
+	Content       string `prof:"content"`
 }
 
 var HaikuDAO HaikuDaoImpl
 
 type HaikuDaoImpl struct {
 	Upsert func(ctx context.Context, e proteus.ContextExecutor, h Haiku) (int64, error) `proq:"q:upsert" prop:"h"`
-	Random func(ctx context.Context, e proteus.ContextQuerier) (Haiku, error)           `proq:"q:random"`
+	Random func(ctx context.Context, e proteus.ContextQuerier, guildID string) (Haiku, error)           `proq:"q:random" prop:"guildID"`
 	// FindByID is only intended for testing
 	FindByID func(ctx context.Context, e proteus.ContextQuerier, messageID int) (Haiku, error)           `proq:"q:findByID" prop:"messageID"`
 }
@@ -25,11 +25,11 @@ type HaikuDaoImpl struct {
 func init() {
 	m := proteus.MapMapper{
 		"upsert": `INSERT INTO haiku (guild_id, channel_id, message_id, author_mention, content)
-				   VALUES (:h.ServerID:,:h.ChannelID:,:h.MessageID:,:h.AuthorMention:,:h.Content:)
+				   VALUES (:h.GuildID:,:h.ChannelID:,:h.MessageID:,:h.AuthorMention:,:h.Content:)
                    ON CONFLICT(guild_id, channel_id, message_id)
 				   DO UPDATE SET content = excluded.content`,
 		"findByID": `SELECT * FROM haiku WHERE message_id = :messageID:`,
-	    "random": `SELECT * FROM haiku ORDER BY RANDOM() LIMIT 1`,
+	    "random": `SELECT * FROM haiku WHERE guild_id = :guildID: ORDER BY RANDOM() LIMIT 1`,
 	}
 	err := proteus.ShouldBuild(context.Background(), &HaikuDAO, proteus.Sqlite, m)
 	if err != nil {

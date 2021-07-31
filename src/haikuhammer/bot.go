@@ -21,6 +21,7 @@ type Config struct {
 	ReactToNonHaiku bool
 	DeleteNonHaiku bool
 	ExplainNonHaiku bool
+	ServeRandomHaiku bool
 
 	BotUsername string
 	PositiveReacts []string
@@ -32,11 +33,9 @@ type Config struct {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("\tReactToHaiku: %t\n\tReactToNonHaiku: %t\n\tDeleteNonHaiku: %t\n\tExplainNonHaiku: %t\n",
-		c.ReactToHaiku, c.ReactToNonHaiku, c.DeleteNonHaiku, c.ExplainNonHaiku)
+	return fmt.Sprintf("\tReactToHaiku: %t\n\tReactToNonHaiku: %t\n\tDeleteNonHaiku: %t\n\tExplainNonHaiku: %t\n\tServeRandomHaiku: %t\n",
+		c.ReactToHaiku, c.ReactToNonHaiku, c.DeleteNonHaiku, c.ExplainNonHaiku, c.ServeRandomHaiku)
 }
-
-// TODO: customize the emoji reaction given from a random set
 
 type HaikuHammer struct {
 	session *discordgo.Session
@@ -160,6 +159,13 @@ func (h *HaikuHammer) HandleHaiku(s *discordgo.Session, m *discordgo.Message) {
 }
 
 func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.Message, err error) {
+	if h.config.ServeRandomHaiku {
+		if h.mentionsMe(m) {
+			h.replyWithRandomHaiku(s, m)
+			return
+		}
+	}
+
 	if h.config.DeleteNonHaiku {
 		h.Delete(s, m)
 		return
@@ -313,6 +319,36 @@ func (h *HaikuHammer) saveHaiku(m *discordgo.Message) error {
 		return err
 	}
 	return nil
+}
+
+func (h *HaikuHammer) replyWithRandomHaiku(s *discordgo.Session, m *discordgo.Message) error {
+	haiku, err := db.HaikuDAO.Random(context.Background(), h.db, m.GuildID)
+	if err != nil {
+		log.Println("could not retrieve random haiku for guild", err)
+		return err
+	}
+	if haiku.Content == "" {
+		log.Println("could not find any haiku for guild", m.GuildID)
+		return fmt.Errorf("no haiku was saved for guild %s", m.GuildID)
+	}
+	_, err = s.ChannelMessageSendReply(m.ChannelID, presentHaiku(haiku), m.MessageReference)
+	if err != nil {
+		log.Println("could not send message reply", err)
+	}
+	return nil
+}
+
+func (h *HaikuHammer) mentionsMe(m *discordgo.Message) bool {
+	for _, r := range m.Reactions {
+		if r.Me {
+			return true
+		}
+	}
+	return false
+}
+
+func presentHaiku(h db.Haiku) string {
+	return fmt.Sprintf("%s\n> - %s", quote(h.Content), h.AuthorMention)
 }
 
 func randomString(strs []string) string {
