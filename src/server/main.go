@@ -58,7 +58,6 @@ func readConfig() haikuhammer.Config {
 		ExplainNonHaiku: viper.GetBool("explainNonHaiku"),
 		PositiveReacts: viper.GetStringSlice("positiveReacts"),
 		NegativeReacts: viper.GetStringSlice("negativeReacts"),
-		BotUsername: viper.GetString("botUsername"),
 		Debug: viper.GetBool("debug"),
 	}
 }

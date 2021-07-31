@@ -32,10 +32,12 @@ func (c Config) String() string {
 type HaikuHammer struct {
 	session *discordgo.Session
 
-	config            Config
+	config  Config
 
 	channelCache map[string]*discordgo.Channel
 	dmCache map[string]*discordgo.Channel
+
+	botID string
 }
 
 func NewHaikuHammer(config Config) HaikuHammer {
@@ -72,6 +74,14 @@ func (h *HaikuHammer) Open() error {
 		log.Println("error opening connection,", err)
 		return err
 	}
+
+	user, err := h.session.User("@me")
+	if err != nil {
+		log.Println("error looking up bot user", err)
+	}
+	h.botID = user.ID
+	fmt.Println("Bot running as username: ", user.Username + "#" + user.Discriminator)
+
 	return nil
 }
 
@@ -94,8 +104,12 @@ func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) 
 			panic(r)
 		}
 	}()
-	if m.Author.Bot { // prevent SkyNet; don't talk to bots
+	if m == nil || m.Author == nil || m.Author.Bot { // prevent dumb APIs and bot messages
 		return
+	}
+	m, err := s.ChannelMessage(m.ChannelID, m.ID)
+	if err != nil {
+		fmt.Println("could not look up message from channel", err)
 	}
 	if err := IsHaiku(m.Content); err == nil {
 		log.Printf("received haiku: %s\n", strings.ReplaceAll(m.Content, "\n","\\n"))
@@ -197,7 +211,8 @@ func (h *HaikuHammer) removeReaction(s *discordgo.Session, m *discordgo.Message)
 	if r == nil {
 		return
 	}
-	err := s.MessageReactionRemove(m.ChannelID, m.ID, r.Emoji.ID, h.config.BotUsername)
+	fmt.Println(r.Emoji.ID, r.Emoji.Name)
+	err := s.MessageReactionRemove(m.ChannelID, m.ID, r.Emoji.Name, h.botID)
 	if err != nil {
 		log.Println("could not remove emoji reaction", err)
 		return
