@@ -80,7 +80,7 @@ func (h *HaikuHammer) Open() error {
 		log.Println("error looking up bot user", err)
 	}
 	h.botID = user.ID
-	fmt.Println("Bot running as username: ", user.Username + "#" + user.Discriminator)
+	log.Println("Bot running as username: ", user.Username + "#" + user.Discriminator)
 
 	return nil
 }
@@ -100,7 +100,7 @@ func (h *HaikuHammer) ReceiveMessageCreate(s *discordgo.Session, m *discordgo.Me
 func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("Recovered from panic on content, %s, panicking on: %v\n%v", strings.ReplaceAll(m.Content, "\n","\\n"), r, debug.Stack())
+			log.Printf("Recovered from panic on content, %s, panicking on: %v\n%v", strings.ReplaceAll(m.Content, "\n","\\n"), r, debug.Stack())
 			panic(r)
 		}
 	}()
@@ -109,7 +109,7 @@ func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) 
 	}
 	m, err := s.ChannelMessage(m.ChannelID, m.ID)
 	if err != nil {
-		fmt.Println("could not look up message from channel", err)
+		log.Println("could not look up message from channel", err)
 	}
 	if err := IsHaiku(m.Content); err == nil {
 		log.Printf("received haiku: %s\n", strings.ReplaceAll(m.Content, "\n","\\n"))
@@ -211,7 +211,6 @@ func (h *HaikuHammer) removeReaction(s *discordgo.Session, m *discordgo.Message)
 	if r == nil {
 		return
 	}
-	fmt.Println(r.Emoji.ID, r.Emoji.Name)
 	err := s.MessageReactionRemove(m.ChannelID, m.ID, r.Emoji.Name, h.botID)
 	if err != nil {
 		log.Println("could not remove emoji reaction", err)
