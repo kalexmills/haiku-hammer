@@ -15,6 +15,7 @@ type Config struct {
 	ReactToNonHaiku bool
 	DeleteNonHaiku bool
 	ExplainNonHaiku bool
+	BotUsername string
 	PositiveReacts []string
 	NegativeReacts []string
 
@@ -105,7 +106,7 @@ func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) 
 }
 
 func (h *HaikuHammer) HandleHaiku(s *discordgo.Session, m *discordgo.Message) {
-	if h.config.ReactToHaiku {
+	if r := myReaction(m); h.config.ReactToHaiku && r == nil {
 		h.react(s, m, randomString(h.config.PositiveReacts))
 	}
 }
@@ -114,6 +115,10 @@ func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.Message,
 	if h.config.DeleteNonHaiku {
 		h.Delete(s, m)
 		return
+	}
+
+	if h.config.ReactToHaiku {
+		h.removeReaction(s, m)
 	}
 
 	if h.config.ReactToNonHaiku {
@@ -176,6 +181,27 @@ func (h *HaikuHammer) isDM(s *discordgo.Session, channelID string) (bool, error)
 		return false, err
 	}
 	return c.Type == discordgo.ChannelTypeDM && len(c.Recipients) == 1, nil
+}
+
+func myReaction(m *discordgo.Message) *discordgo.MessageReactions {
+	for _, reaction := range m.Reactions {
+		if reaction.Me {
+			return reaction
+		}
+	}
+	return nil
+}
+
+func (h *HaikuHammer) removeReaction(s *discordgo.Session, m *discordgo.Message) {
+	r := myReaction(m)
+	if r == nil {
+		return
+	}
+	err := s.MessageReactionRemove(m.ChannelID, m.ID, r.Emoji.ID, h.config.BotUsername)
+	if err != nil {
+		log.Println("could not remove emoji reaction", err)
+		return
+	}
 }
 
 func (h *HaikuHammer) react(s *discordgo.Session, m *discordgo.Message, reaction string) {
