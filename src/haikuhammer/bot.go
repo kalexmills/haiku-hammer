@@ -321,26 +321,26 @@ func (h *HaikuHammer) saveHaiku(m *discordgo.Message) error {
 	return nil
 }
 
-func (h *HaikuHammer) replyWithRandomHaiku(s *discordgo.Session, m *discordgo.Message) error {
+func (h *HaikuHammer) replyWithRandomHaiku(s *discordgo.Session, m *discordgo.Message) {
 	haiku, err := db.HaikuDAO.Random(context.Background(), h.db, m.GuildID)
 	if err != nil {
 		log.Println("could not retrieve random haiku for guild", err)
-		return err
+		return
 	}
 	if haiku.Content == "" {
 		log.Println("could not find any haiku for guild", m.GuildID)
-		return fmt.Errorf("no haiku was saved for guild %s", m.GuildID)
+		return
 	}
 	_, err = s.ChannelMessageSendReply(m.ChannelID, presentHaiku(haiku), m.MessageReference)
 	if err != nil {
 		log.Println("could not send message reply", err)
+		return
 	}
-	return nil
 }
 
 func (h *HaikuHammer) mentionsMe(m *discordgo.Message) bool {
-	for _, r := range m.Reactions {
-		if r.Me {
+	for _, m := range m.Mentions {
+		if m.ID == h.botID {
 			return true
 		}
 	}
