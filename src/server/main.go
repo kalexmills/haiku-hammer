@@ -16,7 +16,7 @@ func main() {
 
 	err := hh.Open()
 	if err != nil {
-		os.Exit(1)
+		log.Fatalf("fail error opening bot: %v", err)
 	}
 
 	log.Println("Bot is now running.  Press CTRL-C to exit.")
@@ -38,6 +38,7 @@ func readConfig() haikuhammer.Config {
 	viper.SetDefault("explainNonHaiku", true)
 	viper.SetDefault("positiveReacts", []string{"💯","🍙","🍵","🍶","🍜"})
 	viper.SetDefault("negativeReacts", []string{"🚫","⛔"})
+	viper.SetDefault("dbPath", "./haikuDB.sqlite3")
 	viper.SetDefault("debug", false)
 
 	viper.SetEnvPrefix("HAIKU_HAMMER")
@@ -59,5 +60,6 @@ func readConfig() haikuhammer.Config {
 		PositiveReacts: viper.GetStringSlice("positiveReacts"),
 		NegativeReacts: viper.GetStringSlice("negativeReacts"),
 		Debug: viper.GetBool("debug"),
+		DBPath: viper.GetString("dbPath"),
 	}
 }

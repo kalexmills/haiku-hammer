@@ -1,12 +1,18 @@
 package haikuhammer
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
+	"github.com/kalexmills/haiku-enforcer/src/haikuhammer/db"
 	"log"
 	"math/rand"
 	"runtime/debug"
+	"strconv"
 	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Config struct {
@@ -15,11 +21,14 @@ type Config struct {
 	ReactToNonHaiku bool
 	DeleteNonHaiku bool
 	ExplainNonHaiku bool
+
 	BotUsername string
 	PositiveReacts []string
 	NegativeReacts []string
 
 	Debug bool
+
+	DBPath string
 }
 
 func (c Config) String() string {
@@ -31,6 +40,7 @@ func (c Config) String() string {
 
 type HaikuHammer struct {
 	session *discordgo.Session
+	db *sql.DB
 
 	config  Config
 
@@ -50,7 +60,11 @@ func NewHaikuHammer(config Config) HaikuHammer {
 }
 
 func (h *HaikuHammer) Open() error {
-	var err error
+	err := h.OpenDB()
+	if err != nil {
+		return err
+	}
+
 	h.session, err = discordgo.New("Bot " + h.config.Token)
 	if err != nil {
 		log.Println("error creating Discord session,", err)
@@ -85,6 +99,21 @@ func (h *HaikuHammer) Open() error {
 	return nil
 }
 
+func (h *HaikuHammer) OpenDB() error {
+	DB, err := sql.Open("sqlite3", h.config.DBPath)
+	if err != nil {
+		return fmt.Errorf("cannot open database from %s: %w", h.config.DBPath, err)
+	}
+
+	err = db.BootstrapDB(DB)
+	if err != nil {
+		return fmt.Errorf("could not bootstrap database: %w", err)
+	}
+
+	h.db = DB
+	return nil
+}
+
 func (h *HaikuHammer) Close() error {
 	return h.session.Close()
 }
@@ -107,10 +136,14 @@ func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) 
 	if m == nil || m.Author == nil || m.Author.Bot { // prevent dumb APIs and bot messages
 		return
 	}
+
+	gid := m.GuildID // store original guild ID
 	m, err := s.ChannelMessage(m.ChannelID, m.ID)
 	if err != nil {
 		log.Println("could not look up message from channel", err)
 	}
+	m.GuildID = gid
+
 	if err := IsHaiku(m.Content); err == nil {
 		log.Printf("received haiku: %s\n", strings.ReplaceAll(m.Content, "\n","\\n"))
 		h.HandleHaiku(s, m)
@@ -122,6 +155,7 @@ func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) 
 func (h *HaikuHammer) HandleHaiku(s *discordgo.Session, m *discordgo.Message) {
 	if r := myReaction(m); h.config.ReactToHaiku && r == nil {
 		h.react(s, m, randomString(h.config.PositiveReacts))
+		h.saveHaiku(m)
 	}
 }
 
@@ -254,6 +288,31 @@ func (h *HaikuHammer) lookupChannel(s *discordgo.Session, channelID string) (*di
 		h.dmCache[c.Recipients[0].ID] = c
 	}
 	return c, nil
+}
+
+func (h *HaikuHammer) saveHaiku(m *discordgo.Message) error {
+	gid, err := strconv.Atoi(m.GuildID)
+	if err != nil {
+		log.Println("could not parse guildID as integer,", m.GuildID)
+		return err
+	}
+	cid, err := strconv.Atoi(m.ChannelID)
+	if err != nil {
+		log.Println("could not parse channelID as integer,", m.ChannelID)
+		return err
+	}
+	mid, err := strconv.Atoi(m.ID)
+	if err != nil {
+		log.Println("could not parse messageID as integer,", m.ID)
+		return err
+	}
+	// TODO: deduplicate haiku on content (i.e. find plagiarism)
+	_, err = db.HaikuDAO.Upsert(context.Background(), h.db, db.Haiku{gid, cid, mid, m.Author.Mention(), m.Content})
+	if err != nil {
+		log.Println("could not save haiku to database,", err)
+		return err
+	}
+	return nil
 }
 
 func randomString(strs []string) string {
