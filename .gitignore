@@ -2,3 +2,5 @@
 config.yaml
 bin/*
 *.sqlite3
+scripts/wikipedia-enhance/*.txt
+scripts/wikipedia-enhance/data/*

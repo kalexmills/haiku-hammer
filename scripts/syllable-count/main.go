@@ -8,7 +8,7 @@ import (
 	"sort"
 )
 
-const Filename = "cmudict-0.7b.txt"
+const Filename = "data/cmudict-0.7b.txt"
 
 func main() {
 	f, err := readFile()
