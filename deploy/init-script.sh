@@ -13,7 +13,6 @@ RUNAS=botboy
 
 PIDFILE=/var/run/haiku-hammer.pid
 LOGFILE=/home/botboy/haiku-hammer/logs/haiku-hammer.log
-ERRFILE=/home/botboy/haiku-hammer/logs/haiku-hammer.err
 
 start() {
   if [ -f /var/run/$PIDNAME ] && kill -0 $(cat /var/run/$PIDNAME); then
@@ -21,7 +20,7 @@ start() {
     return 1
   fi
   echo 'Starting service' >&2
-  su -s /bin/bash $RUNAS -c "cd haiku-hammer && $SCRIPT > $LOGFILE 2> $ERRFILE 0<&- &" > "$PIDFILE"
+  su -s /bin/bash $RUNAS -c "cd /home/botboy/haiku-hammer && $SCRIPT 2> $LOGFILE 0<&- &" > "$PIDFILE"
   echo 'Service started' >&2
 }
 
