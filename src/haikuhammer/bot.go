@@ -43,8 +43,9 @@ type HaikuHammer struct {
 
 	config  Config
 
-	channelCache map[string]*discordgo.Channel
-	dmCache map[string]*discordgo.Channel
+	dmCache map[string]bool // maps from channelIDs to whether they're DM channels or not
+	dmChannelCache map[string]string // maps from userIDs to their DM channel ID
+	memberNickCache map[string]string // maps from guildID + userID to a nickname for that user
 
 	botID string
 }
@@ -53,8 +54,7 @@ func NewHaikuHammer(config Config) HaikuHammer {
 	log.Printf("Haiku Bot Config:\n%v", config)
 	return HaikuHammer{
 		config: config,
-		channelCache: make(map[string]*discordgo.Channel),
-		dmCache: make(map[string]*discordgo.Channel),
+		dmCache: make(map[string]bool),
 	}
 }
 
@@ -154,8 +154,8 @@ func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) 
 func (h *HaikuHammer) HandleHaiku(s *discordgo.Session, m *discordgo.Message) {
 	if r := myReaction(m); h.config.ReactToHaiku && r == nil {
 		h.react(s, m, randomString(h.config.PositiveReacts))
-		h.saveHaiku(m)
 	}
+	h.saveHaiku(m)
 }
 
 func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.Message, err error) {
@@ -193,18 +193,13 @@ func (h *HaikuHammer) Delete(s *discordgo.Session, m *discordgo.Message) {
 		log.Println("could not delete message from channel,", err)
 		return
 	}
-	dmChannel, err := h.createDMChannel(s, m.Author.ID)
+	dmChannelID, err := h.getDMChannelID(s, m.Author.ID)
 	if err != nil {
 		log.Println("could not create user DM channel,", err)
 		return
 	}
-	c, err := h.lookupChannel(s, m.ChannelID)
-	if err != nil {
-		log.Println("could not lookup message ChannelID,", err)
-		return
-	}
-	explanation := fmt.Sprintf("I deleted the message you just sent to %s since I didn't think it was a proper Haiku:\n %s", c.Mention(), quote(m.Content))
-	_, err = s.ChannelMessageSend(dmChannel.ID, explanation)
+	explanation := fmt.Sprintf("I deleted the message you just sent to %s since I didn't think it was a proper Haiku:\n %s", channelMention(m.ChannelID), quote(m.Content))
+	_, err = s.ChannelMessageSend(dmChannelID, explanation)
 	if err != nil {
 		log.Println("could not send message to user DM channel,", err)
 		return
@@ -217,12 +212,12 @@ func (h *HaikuHammer) ExplainHaiku(s *discordgo.Session, m *discordgo.Message, e
 		log.Println("tried to explain a non-haiku without an error,", strings.ReplaceAll(m.Content, "\n", "\\n"))
 		return
 	}
-	dmChannel, err := h.createDMChannel(s, m.Author.ID)
+	dmChannelID, err := h.getDMChannelID(s, m.Author.ID)
 	if err != nil {
 		log.Println("could not create user DM channel,", err)
 		return
 	}
-	_, err = s.ChannelMessageSendReply(dmChannel.ID, explainErr.Error(), m.MessageReference)
+	_, err = s.ChannelMessageSendReply(dmChannelID, explainErr.Error(), m.MessageReference)
 	if err != nil {
 		log.Println("could not send message to user DM channel,", err)
 		return
@@ -230,11 +225,17 @@ func (h *HaikuHammer) ExplainHaiku(s *discordgo.Session, m *discordgo.Message, e
 }
 
 func (h *HaikuHammer) isDM(s *discordgo.Session, channelID string) (bool, error) {
-	c, err := h.lookupChannel(s, channelID)
+	if result, ok := h.dmCache[channelID]; ok {
+		return result, nil
+	}
+	c, err := s.Channel(channelID)
 	if err != nil {
 		return false, err
 	}
-	return c.Type == discordgo.ChannelTypeDM && len(c.Recipients) == 1, nil
+	log.Println("looked up channel", channelID)
+	result := c.Type == discordgo.ChannelTypeDM && len(c.Recipients) == 1
+	h.dmCache[channelID] = result
+	return result, nil
 }
 
 func myReaction(m *discordgo.Message) *discordgo.MessageReactions {
@@ -266,59 +267,56 @@ func (h *HaikuHammer) react(s *discordgo.Session, m *discordgo.Message, reaction
 	}
 }
 
-func (h *HaikuHammer) createDMChannel(s *discordgo.Session, authorID string) (*discordgo.Channel, error) {
-	if c, ok := h.dmCache[authorID]; ok {
+func (h *HaikuHammer) getDMChannelID(s *discordgo.Session, authorID string) (string, error) {
+	if c, ok := h.dmChannelCache[authorID]; ok {
 		return c, nil
 	}
 	c, err := s.UserChannelCreate(authorID)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	log.Println("retrieved new DM channel for user", authorID)
-	h.channelCache[c.ID] = c
-	h.dmCache[authorID] = c
-	return c, nil
+	h.dmCache[c.ID] = true
+	h.dmChannelCache[authorID] = c.ID
+	return c.ID, nil
 }
 
-func (h *HaikuHammer) lookupChannel(s *discordgo.Session, channelID string) (*discordgo.Channel, error) {
-	if c, ok := h.channelCache[channelID]; ok {
-		return c, nil
-	}
-	c, err := s.Channel(channelID)
+func (h *HaikuHammer) getMemberNick(s *discordgo.Session, guildID string, userID string) (string, error) {
+	member, err := s.GuildMember(guildID, userID)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	log.Println("looked up channel", channelID)
-	h.channelCache[channelID] = c
-	if c.Type == discordgo.ChannelTypeDM && len(c.Recipients) == 1 {
-		h.dmCache[c.Recipients[0].ID] = c
-	}
-	return c, nil
+	return memberNick(member), nil
 }
 
-func (h *HaikuHammer) saveHaiku(m *discordgo.Message) error {
+func memberNick(m *discordgo.Member) string {
+	if m.Nick != "" {
+		return m.Nick
+	}
+	return m.User.Username
+}
+
+func (h *HaikuHammer) saveHaiku(m *discordgo.Message) {
 	gid, err := strconv.Atoi(m.GuildID)
 	if err != nil {
 		log.Println("could not parse guildID as integer,", m.GuildID)
-		return err
+		return
 	}
 	cid, err := strconv.Atoi(m.ChannelID)
 	if err != nil {
 		log.Println("could not parse channelID as integer,", m.ChannelID)
-		return err
+		return
 	}
 	mid, err := strconv.Atoi(m.ID)
 	if err != nil {
 		log.Println("could not parse messageID as integer,", m.ID)
-		return err
+		return
 	}
 	// TODO: deduplicate haiku on content (i.e. find plagiarism)
-	_, err = db.HaikuDAO.Upsert(context.Background(), h.db, db.Haiku{gid, cid, mid, m.Author.Mention(), m.Content})
+	_, err = db.HaikuDAO.Upsert(context.Background(), h.db, db.Haiku{gid, cid, mid, m.Author.ID, m.Content})
 	if err != nil {
 		log.Println("could not save haiku to database,", err)
-		return err
 	}
-	return nil
 }
 
 func (h *HaikuHammer) replyWithRandomHaiku(s *discordgo.Session, m *discordgo.Message) {
@@ -331,7 +329,7 @@ func (h *HaikuHammer) replyWithRandomHaiku(s *discordgo.Session, m *discordgo.Me
 		log.Println("could not find any haiku for guild", m.GuildID)
 		return
 	}
-	_, err = s.ChannelMessageSendReply(m.ChannelID, presentHaiku(haiku), m.MessageReference)
+	_, err = s.ChannelMessageSendReply(m.ChannelID, h.presentHaiku(s, haiku), m.MessageReference)
 	if err != nil {
 		log.Println("could not send message reply", err)
 		return
@@ -347,8 +345,13 @@ func (h *HaikuHammer) mentionsMe(m *discordgo.Message) bool {
 	return false
 }
 
-func presentHaiku(h db.Haiku) string {
-	return fmt.Sprintf("%s\n> - %s", quote(h.Content), h.AuthorMention)
+func (h *HaikuHammer) presentHaiku(s *discordgo.Session, haiku db.Haiku) string {
+	nick, err := h.getMemberNick(s, strconv.Itoa(haiku.GuildID), haiku.AuthorID)
+	if err != nil {
+		log.Println("could not retrieve member nick for guildID:", haiku.GuildID, "authorID:", haiku.AuthorID)
+		return fmt.Sprintf("%s\n> - Unknown", quote(haiku.Content))
+	}
+	return fmt.Sprintf("%s\n> - %s", quote(haiku.Content), nick)
 }
 
 func randomString(strs []string) string {
@@ -357,4 +360,8 @@ func randomString(strs []string) string {
 
 func quote(str string) string {
 	return "> " + strings.ReplaceAll(str, "\n", "\n> ")
+}
+
+func channelMention(channelID string) string {
+	return fmt.Sprintf("<#%s>", channelID)
 }

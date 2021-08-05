@@ -6,11 +6,11 @@ import (
 )
 
 type Haiku struct {
-	GuildID       int    `prof:"guild_id"`
-	ChannelID     int    `prof:"channel_id"`
-	MessageID     int    `prof:"message_id"`
-	AuthorMention string `prof:"author_mention"`
-	Content       string `prof:"content"`
+	GuildID   int    `prof:"guild_id"`
+	ChannelID int    `prof:"channel_id"`
+	MessageID int    `prof:"message_id"`
+	AuthorID  string    `prof:"author_id"`
+	Content   string `prof:"content"`
 }
 
 var HaikuDAO HaikuDaoImpl
@@ -24,8 +24,8 @@ type HaikuDaoImpl struct {
 
 func init() {
 	m := proteus.MapMapper{
-		"upsert": `INSERT INTO haiku (guild_id, channel_id, message_id, author_mention, content)
-				   VALUES (:h.GuildID:,:h.ChannelID:,:h.MessageID:,:h.AuthorMention:,:h.Content:)
+		"upsert": `INSERT INTO haiku (guild_id, channel_id, message_id, author_id, content)
+				   VALUES (:h.GuildID:,:h.ChannelID:,:h.MessageID:,:h.AuthorID:,:h.Content:)
                    ON CONFLICT(guild_id, channel_id, message_id)
 				   DO UPDATE SET content = excluded.content`,
 		"findByID": `SELECT * FROM haiku WHERE message_id = :messageID:`,

@@ -51,7 +51,7 @@ func TestHaikuDAO_Upsert(t *testing.T) {
 	haiku, err := db.HaikuDAO.FindByID(ctx, DB, 1)
 	assert.NoError(t, err)
 	assert.EqualValues(t, haiku.Content, "not really a haiku")
-	assert.EqualValues(t, haiku.AuthorMention, "mention#3414")
+	assert.EqualValues(t, haiku.AuthorID, "mention#3414")
 
 	db.HaikuDAO.Upsert(ctx, DB, db.Haiku{1,1,1,"changed_mention","updated haiku"})
 	assert.NoError(t, err)
@@ -60,7 +60,7 @@ func TestHaikuDAO_Upsert(t *testing.T) {
 	haiku, err = db.HaikuDAO.FindByID(ctx, DB, 1)
 	assert.NoError(t, err)
 	assert.EqualValues(t, haiku.Content, "updated haiku")
-	assert.EqualValues(t, haiku.AuthorMention, "mention#3414")
+	assert.EqualValues(t, haiku.AuthorID, "mention#3414")
 }
 
 func TestHaikuDAO_Random(t *testing.T) {

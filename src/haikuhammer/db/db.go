@@ -31,9 +31,11 @@ func BootstrapDB(DB *sql.DB) error {
 		_, err = DB.Exec(string(script))
 		if err != nil {
 			log.Printf("could not execute bootstrap script %s: %v", finfo.Name(), err)
-			return err
+			// TODO: proper version control and error reporting ._.
+			//return err
+		} else {
+			log.Printf("executed bootstrap script %s", finfo.Name())
 		}
-		log.Printf("executed bootstrap script %s", finfo.Name())
 	}
 	if !foundSQLFile {
 		return fmt.Errorf("could not find any *.sql files in schema folder scripts")
