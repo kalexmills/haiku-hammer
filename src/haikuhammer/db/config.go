@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"github.com/jonbodner/proteus"
+	"strings"
 )
 
 type ConfigFlag int64
@@ -35,6 +36,26 @@ func (f ConfigFlag) And(other ConfigFlag) ConfigFlag {
 	return f & other
 }
 
+func (f ConfigFlag) String() string {
+	var features []string
+	if f.ReactToHaiku() {
+		features = append(features, "ReactToHaiku")
+	}
+	if f.ReactToNonHaiku() {
+		features = append(features, "ReactToNonHaiku")
+	}
+	if f.DeleteNonHaiku() {
+		features = append(features, "DeleteNonHaiku")
+	}
+	if f.ExplainNonHaiku() {
+		features = append(features, "ExplainNonHaiku")
+	}
+	if f.ServeRandomHaiku() {
+		features = append(features, "ServeRandomHaiku")
+	}
+	return strings.Join(features, ", ")
+}
+
 const (
 	ConfigReactToHaiku ConfigFlag = 1 << iota
 	ConfigReactToNonHaiku
@@ -63,7 +84,7 @@ type ChannelConfig struct {
 var ChannelConfigDAO ChannelConfigDAOImpl
 
 type ChannelConfigDAOImpl struct {
-	Upsert func(ctx context.Context, e proteus.ContextExecutor, channelID int, flags int64) (int64, error) `proq:"q:chan_upsert" prop:"channelID,flags"`
+	Upsert func(ctx context.Context, e proteus.ContextExecutor, channelID int, flags ConfigFlag) (int64, error) `proq:"q:chan_upsert" prop:"channelID,flags"`
 	FindByID func(ctx context.Context, e proteus.ContextQuerier, channelID int) (ChannelConfig, error) `proq:"q:chan_findByID" prop:"channelID"`
 }
 

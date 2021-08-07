@@ -117,14 +117,18 @@ func (h *HaikuHammer) Close() error {
 }
 
 func (h *HaikuHammer) ReceiveMessageEdit(s *discordgo.Session, m *discordgo.MessageUpdate) {
-	h.HandleMessage(s, m.Message)
+	h.HandleMessage(h.session, m.Message)
 }
 
 func (h *HaikuHammer) ReceiveMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	h.HandleMessage(s, m.Message)
+	if strings.HasPrefix(m.Content, "!haiku ") {
+		h.HandleAdminCommand(h.session, m.Message)
+		return
+	}
+	h.HandleMessage(h.session, m.Message)
 }
 
-func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) {
+func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) { // TODO: remove s from everywhere.
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Recovered from panic on content, %s, panicking on: %v\n%v", strings.ReplaceAll(m.Content, "\n","\\n"), r, debug.Stack())
@@ -142,11 +146,6 @@ func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) 
 		return
 	}
 	m.GuildID = gid
-
-	if strings.HasPrefix(m.Content, "!haiku ") {
-		h.HandleAdminCommand(s, m)
-		return
-	}
 
 	if err := IsHaiku(m.Content); err == nil {
 		log.Printf("received haiku: %s\n", strings.ReplaceAll(m.Content, "\n","\\n"))
@@ -195,12 +194,12 @@ func (h *HaikuHammer) HandleNonHaiku(s *discordgo.Session, m *discordgo.Message,
 }
 
 var AdminHelp = `All commands must be sent in the guild they are meant to apply to.
-  ~~~!haiku feature on [target] [feature, feature...]~~~
-  ~~~!haiku feature off [target] [feature, feature...]~~~
+  ~~~!haiku feature on [target] [feature feature...]~~~
+  ~~~!haiku feature off [target] [feature feature...]~~~
   ~~~!haiku feature list [target]~~~
   
 ~~~[target]~~~ can be either a channel mention or ~~~global~~~ to enable features for every channel in the guild.
-~~~[feature, feature...]~~~ is a comma-separated list of features from the below list.
+~~~[feature feature...]~~~ is a space-separated list of features from the below list.
 
    - ~~~ReactToHaiku~~~ - adds an emoji reaction to any detected haiku
    - ~~~ReactToNonHaiku~~~ - adds an emoji reaction to any detected non-haiku
@@ -214,29 +213,153 @@ func init() {
 }
 
 func (h *HaikuHammer) HandleAdminCommand(s *discordgo.Session, m *discordgo.Message) {
-	perms, err := s.UserChannelPermissions(m.Author.ID, m.ChannelID)
+	gid := m.GuildID // store original guild ID
+	m, err := s.ChannelMessage(m.ChannelID, m.ID)
 	if err != nil {
-		log.Println("could not retrieve permissions for user, ignoring admin command")
+		log.Println("could not look up message from channel", err)
+		return
+	}
+	m.GuildID = gid
+
+	perms, err := h.Permissions(s,m)
+	if err != nil {
+		log.Println("could not retrieve permissions for user, ignoring admin command,", err)
 		return
 	}
 	if perms & discordgo.PermissionAdministrator == 0 && perms & discordgo.PermissionManageChannels == 0 {
-		h.DM(s, m, fmt.Sprintf("You do not have permissions to manage HaikuHammer permissions in <#%s>", m.ChannelID)
+		h.DM(s, m, fmt.Sprintf("You do not have permissions to manage HaikuHammer in <#%s>", m.ChannelID))
 		return
 	}
 	commandRaw := strings.TrimPrefix(m.Content, "!haiku ")
 	command, err := parseCommand(commandRaw)
 	if err != nil {
-		h.DM(s, m, err.Error())
+		s.ChannelMessageSendReply(m.ChannelID, err.Error(), m.MessageReference)
 		return
 	}
-	// TODO: resolve target; either 'global' or channel.
+
 	switch command.Operation {
 	case OpFeatureOn:
-		h.adminFeatureOn(s, m, command)
+		h.updateFeatures(m, command, EnableFeatures)
+		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Enabled features %s for target %s", command.Features.String(), command.MentionTarget()), m.MessageReference)
 	case OpFeatureOff:
-		h.adminFeatureOff(s, m, command)
+		h.updateFeatures(m, command, DisableFeatures)
+		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Disabled features %s for target %s", command.Features.String(), command.MentionTarget()), m.MessageReference)
 	case OpFeatureList:
 		h.handleFeatureList(s, m, command)
+	case OpHelp:
+		s.ChannelMessageSendReply(m.ChannelID, AdminHelp, m.MessageReference)
+	}
+}
+
+func (h *HaikuHammer) Permissions(s *discordgo.Session, m *discordgo.Message) (int64, error) {
+	g, err := s.Guild(m.GuildID)
+	if err != nil {
+		return 0, err
+	}
+	if g.OwnerID == m.Author.ID {
+		return discordgo.PermissionAll, nil
+	}
+	member, err := s.GuildMember(m.GuildID, m.Author.ID)
+	if err != nil {
+		return 0, err
+	}
+	roles, err := s.GuildRoles(m.GuildID)
+	if err != nil {
+		return 0, err
+	}
+	roleMap := make(map[string]int64)
+	for _, role := range roles {
+		roleMap[role.Name] = role.Permissions
+	}
+	permissions := roleMap["@everyone"]
+	for _, role := range member.Roles {
+		permissions |= roleMap[role]
+	}
+	if permissions & discordgo.PermissionAdministrator == discordgo.PermissionAdministrator {
+		return discordgo.PermissionAll, nil
+	}
+	return permissions, nil
+}
+
+func (h *HaikuHammer) handleFeatureList(s *discordgo.Session, m *discordgo.Message, command Command) {
+	ctx := context.Background()
+	switch command.Target {
+	case "global":
+		gid, err := strconv.Atoi(m.GuildID)
+		if err != nil {
+			log.Println("could not parse guildID as integer,", m.GuildID)
+			return
+		}
+		currConfig, err := db.GuildConfigDAO.FindByID(ctx, h.db, gid)
+		if err != nil {
+			log.Println("could not read guild config from database,", err)
+			return
+		}
+		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Features enabled for target %s: %s", command.MentionTarget(), currConfig.Flags), m.MessageReference)
+	default:
+		cid, err := strconv.Atoi(command.Target)
+		if err != nil {
+			log.Println("could not parse channelID as integer,", m.ChannelID)
+			return
+		}
+		currConfig, err := db.ChannelConfigDAO.FindByID(ctx, h.db, cid)
+		if err != nil {
+			log.Println("could not read channel config from database,", err)
+			return
+		}
+		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Features enabled for target %s: %s", command.MentionTarget(), currConfig.Flags), m.MessageReference)
+	}
+}
+
+type featureMutator func(db.ConfigFlag, db.ConfigFlag) db.ConfigFlag
+
+func EnableFeatures(current db.ConfigFlag, feats db.ConfigFlag) db.ConfigFlag {
+	return current.Or(feats)
+}
+
+func DisableFeatures(current db.ConfigFlag, feats db.ConfigFlag) db.ConfigFlag {
+	return current.And(^feats) // and with bitwise not
+}
+
+func (h *HaikuHammer) updateFeatures(m *discordgo.Message, command Command, mutator featureMutator) {
+	ctx := context.Background()
+	switch command.Target {
+	case "global":
+		gid, err := strconv.Atoi(m.GuildID)
+		if err != nil {
+			log.Println("could not parse guildID as integer,", m.GuildID)
+			return
+		}
+		currConfig, err := db.GuildConfigDAO.FindByID(ctx, h.db, gid) // read
+		if err != nil {
+			log.Println("could not retrieve guild permissions,", err)
+		}
+
+		// modify
+		currConfig.GuildID = gid
+		currConfig.Flags = mutator(currConfig.Flags, command.Features)
+
+		_, err = db.GuildConfigDAO.Upsert(ctx, h.db, currConfig) // write
+		if err != nil {
+			log.Println("could not update guild permissions,", err)
+		}
+	default: // channel ID (target was verified by caller)
+		cid, err := strconv.Atoi(command.Target)
+		if err != nil {
+			log.Println("could not parse guildID as integer,", m.GuildID)
+			return
+		}
+		currConfig, err := db.ChannelConfigDAO.FindByID(ctx, h.db, cid) // read
+		if err != nil {
+			log.Println("could not retrieve channel permissions,", err)
+		}
+
+		currConfig.Flags = mutator(currConfig.Flags, command.Features)
+
+		_, err = db.ChannelConfigDAO.Upsert(ctx, h.db, cid, currConfig.Flags) // write
+		if err != nil {
+			log.Println("could not update guild permissions,", err)
+		}
 	}
 }
 
@@ -246,12 +369,20 @@ const (
 	OpFeatureOn Operation = iota
 	OpFeatureOff
 	OpFeatureList
+	OpHelp
 )
 
 type Command struct {
 	Operation Operation
 	Target string
 	Features db.ConfigFlag
+}
+
+func (c Command) MentionTarget() string {
+	if c.Target == "global" {
+		return "global"
+	}
+	return fmt.Sprintf("<#%s>", c.Target)
 }
 
 func parseCommand(content string) (Command, error) {
@@ -263,10 +394,13 @@ func parseCommand(content string) (Command, error) {
 			trimmed = append(trimmed, token)
 		}
 	}
-	if len(tokens) < 2 {
+	if len(tokens) < 1 {
 		return Command{}, errors.New("expected a valid command after `!haiku`; send `!haiku help` for help")
 	}
-	command := tokens[0] + " " + tokens[1]
+	command := tokens[0]
+	if len(tokens) > 1 {
+		command += " " + tokens[1]
+	}
 	result := Command{}
 	switch command {
 	case "feature on":
@@ -284,8 +418,24 @@ func parseCommand(content string) (Command, error) {
 		if len(tokens) < 3 {
 			return Command{}, errors.New("expected a target after `feature list`; send `!haiku help` for help")
 		}
+	case "help":
+		result.Operation = OpHelp
+		return result, nil
+	default:
+		return Command{}, fmt.Errorf("could not understand command %s", command)
 	}
+
 	result.Target = tokens[2]
+	if result.Target != "global" && strings.HasPrefix(result.Target, "<#") {
+		id, err := strconv.Atoi(strings.TrimSuffix(result.Target[2:], ">"))
+		if err != nil {
+			return Command{}, fmt.Errorf("couldn't parse target '%s' as valid channel mention", result.Target)
+		}
+		result.Target = fmt.Sprintf("%d", id)
+	} else if result.Target != "global" {
+		return Command{}, fmt.Errorf("couldn't parse target '%s' as valid target", result.Target)
+	}
+
 	result.Features, err = parseFeatures(tokens[3:])
 	if err != nil {
 		return Command{}, err
@@ -307,6 +457,7 @@ func parseFeatures(features []string) (db.ConfigFlag, error) {
 			result |= db.ConfigExplainNonHaiku
 		case "ServeRandomHaiku":
 			result |= db.ConfigServeRandomHaiku
+		case "": // ignore
 		default:
 			return 0, fmt.Errorf("could not understand '%s' as a valid feature; send `!haiku help` for help", feature)
 		}
