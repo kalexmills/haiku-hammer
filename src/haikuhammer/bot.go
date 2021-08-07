@@ -91,6 +91,7 @@ func (h *HaikuHammer) Open() error {
 	user, err := h.session.User("@me")
 	if err != nil {
 		log.Println("error looking up bot user", err)
+		return err
 	}
 	h.botID = user.ID
 	log.Println("Bot running as username: ", user.Username + "#" + user.Discriminator)
@@ -140,6 +141,7 @@ func (h *HaikuHammer) HandleMessage(s *discordgo.Session, m *discordgo.Message) 
 	m, err := s.ChannelMessage(m.ChannelID, m.ID)
 	if err != nil {
 		log.Println("could not look up message from channel", err)
+		return
 	}
 	m.GuildID = gid
 
