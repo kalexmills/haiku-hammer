@@ -490,14 +490,9 @@ func (h *HaikuHammer) ExplainHaiku(s *discordgo.Session, m *discordgo.Message, e
 		log.Println("tried to explain a non-haiku without an error,", strings.ReplaceAll(m.Content, "\n", "\\n"))
 		return
 	}
-	dmChannelID, err := h.getDMChannelID(s, m.Author.ID)
+	_, err := s.ChannelMessageSendReply(m.ChannelID, explainErr.Error(), m.MessageReference)
 	if err != nil {
-		log.Println("could not create user DM channel,", err)
-		return
-	}
-	_, err = s.ChannelMessageSendReply(dmChannelID, explainErr.Error(), m.MessageReference)
-	if err != nil {
-		log.Println("could not send message to user DM channel,", err)
+		log.Println("could not send message to channel,", err)
 		return
 	}
 }
