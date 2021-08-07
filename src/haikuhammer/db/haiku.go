@@ -9,7 +9,7 @@ type Haiku struct {
 	GuildID   int    `prof:"guild_id"`
 	ChannelID int    `prof:"channel_id"`
 	MessageID int    `prof:"message_id"`
-	AuthorID  string    `prof:"author_id"`
+	AuthorID  string `prof:"author_id"`
 	Content   string `prof:"content"`
 }
 

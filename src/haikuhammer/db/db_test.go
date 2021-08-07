@@ -87,3 +87,62 @@ func TestHaikuDAO_Random(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, result.Content)
 }
+
+func TestGuildConfigDAO_Upsert(t *testing.T) {
+	ctx := context.Background()
+
+	_, err := db.GuildConfigDAO.Upsert(ctx, DB, db.GuildConfig{1, 12, "pos", "neg"})
+	assert.NoError(t, err)
+
+	conf, err := db.GuildConfigDAO.FindByID(ctx, DB, 1)
+	assert.NoError(t, err)
+	assert.EqualValues(t, db.GuildConfig{1,12,"pos","neg"}, conf)
+
+	_, err = db.GuildConfigDAO.Upsert(ctx, DB, db.GuildConfig{1, 4, "pos1", "neg1"})
+	assert.NoError(t, err)
+
+	conf, err = db.GuildConfigDAO.FindByID(ctx, DB, 1)
+	assert.NoError(t, err)
+	assert.EqualValues(t, db.GuildConfig{1,4,"pos1","neg1"}, conf)
+
+}
+
+func TestChannelConfigDAO_Upsert(t *testing.T) {
+	ctx := context.Background()
+
+	_, err := db.ChannelConfigDAO.Upsert(ctx, DB,1, 12)
+	assert.NoError(t, err)
+
+	conf, err := db.ChannelConfigDAO.FindByID(ctx, DB, 1)
+	assert.NoError(t, err)
+	assert.EqualValues(t, db.ChannelConfig{1,12}, conf)
+
+	_, err = db.ChannelConfigDAO.Upsert(ctx, DB, 1, 4)
+	assert.NoError(t, err)
+
+	conf, err = db.ChannelConfigDAO.FindByID(ctx, DB, 1)
+	assert.NoError(t, err)
+	assert.EqualValues(t, db.ChannelConfig{1,4}, conf)
+
+	conf, err = db.ChannelConfigDAO.FindByID(ctx, DB, 2)
+	assert.NoError(t, err)
+}
+
+func TestLookupFlags(t *testing.T) {
+	ctx := context.Background()
+
+	_, err := db.ChannelConfigDAO.Upsert(ctx, DB, 1, 3)
+	assert.NoError(t, err)
+	_, err = db.GuildConfigDAO.Upsert(ctx, DB, db.GuildConfig{GuildID: 2, Flags: 4})
+	assert.NoError(t, err)
+
+	flags, err := db.LookupFlags(ctx, DB, 2, 1)
+	assert.NoError(t, err)
+
+	assert.EqualValues(t, 7, flags)
+	assert.True(t, flags.ReactToNonHaiku())
+	assert.True(t, flags.ReactToHaiku())
+	assert.True(t, flags.DeleteNonHaiku())
+	assert.False(t, flags.ExplainNonHaiku())
+	assert.False(t, flags.ServeRandomHaiku())
+}
