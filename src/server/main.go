@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/kalexmills/haiku-enforcer/src/haikuhammer"
+	"github.com/kalexmills/haiku-enforcer/src/haikuhammer/db"
 	"github.com/spf13/viper"
 	"log"
 
@@ -52,13 +53,25 @@ func readConfig() haikuhammer.Config {
 	if err != nil {
 		log.Println("no config file found, using defaults,", err)
 	}
+	flags := db.ConfigFlag(0)
+	if viper.GetBool("reactHaiku") {
+		flags |= db.ConfigReactToHaiku
+	}
+	if viper.GetBool("reactNonHaiku") {
+		flags |= db.ConfigReactToNonHaiku
+	}
+	if viper.GetBool("deleteNonHaiku") {
+		flags |= db.ConfigDeleteNonHaiku
+	}
+	if viper.GetBool("explainNonHaiku") {
+		flags |= db.ConfigExplainNonHaiku
+	}
+	if viper.GetBool("serveRandomHaiku") {
+		flags |= db.ConfigServeRandomHaiku
+	}
 	return haikuhammer.Config{
 		Token: viper.GetString("token"),
-		ReactToHaiku: viper.GetBool("reactHaiku"),
-		ReactToNonHaiku: viper.GetBool("reactNonHaiku"),
-		DeleteNonHaiku: viper.GetBool("deleteNonHaiku"),
-		ExplainNonHaiku: viper.GetBool("explainNonHaiku"),
-		ServeRandomHaiku: viper.GetBool("serveRandomHaiku"),
+		ActionFlags: flags,
 		PositiveReacts: viper.GetStringSlice("positiveReacts"),
 		NegativeReacts: viper.GetStringSlice("negativeReacts"),
 		Debug: viper.GetBool("debug"),
