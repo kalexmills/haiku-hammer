@@ -212,6 +212,10 @@ func init() {
 	AdminHelp = strings.ReplaceAll(AdminHelp, "~~~", "`")
 }
 
+// adminCommandPerms is a bitmask for the min permissions required to send admin commands. If any flag is set, the
+// user can send HaikuHammer admin commands.
+const adminCommandPerms = discordgo.PermissionAdministrator | discordgo.PermissionManageChannels | discordgo.PermissionManageServer
+
 func (h *HaikuHammer) HandleAdminCommand(s *discordgo.Session, m *discordgo.Message) {
 	gid := m.GuildID // store original guild ID
 	m, err := s.ChannelMessage(m.ChannelID, m.ID)
@@ -226,7 +230,10 @@ func (h *HaikuHammer) HandleAdminCommand(s *discordgo.Session, m *discordgo.Mess
 		log.Println("could not retrieve permissions for user, ignoring admin command,", err)
 		return
 	}
-	if perms & discordgo.PermissionAdministrator == 0 && perms & discordgo.PermissionManageChannels == 0 {
+	if perms & adminCommandPerms > 0 {
+		if h.config.Debug {
+			log.Printf("could not verify admin permissions, found perms %d, expected %d", perms, adminCommandPerms)
+		}
 		h.DM(s, m, fmt.Sprintf("You do not have permissions to manage HaikuHammer in <#%s>", m.ChannelID))
 		return
 	}
