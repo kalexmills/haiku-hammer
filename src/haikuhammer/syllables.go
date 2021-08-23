@@ -117,11 +117,17 @@ func cleanWord(s string) string {
 }
 
 func strip(s string) string {
+	return stripBytes(s, func(b byte) bool {
+		return ('a' <= b && b <= 'z') ||
+			('A' <= b && b <= 'Z') || b == '\''
+	})
+}
+
+func stripBytes(s string, predicate func(byte) bool) string {
 	var result strings.Builder
 	for i := 0; i < len(s); i++ {
 		b := s[i]
-		if ('a' <= b && b <= 'z') ||
-			('A' <= b && b <= 'Z') || b == '\''{
+		if predicate(b) {
 			result.WriteByte(b)
 		}
 	}

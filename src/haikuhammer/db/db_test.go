@@ -146,3 +146,20 @@ func TestLookupFlags(t *testing.T) {
 	assert.False(t, flags.ExplainNonHaiku())
 	assert.False(t, flags.ServeRandomHaiku())
 }
+
+func TestHaikuHashDao(t *testing.T) {
+	ctx := context.Background()
+
+	haikuHash := [16]byte{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}
+	otherHash := [16]byte{15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0}
+
+	_, err := db.HaikuHashDAO.Upsert(ctx, DB, 143, haikuHash[:])
+	assert.NoError(t, err)
+
+	mid, err := db.HaikuHashDAO.FindByMD5(ctx, DB, haikuHash[:])
+	assert.EqualValues(t, 143, mid)
+
+	mid, err = db.HaikuHashDAO.FindByMD5(ctx, DB, otherHash[:])
+	assert.NoError(t, err) // I wish it was elseways.
+	assert.EqualValues(t, 0, mid)
+}
